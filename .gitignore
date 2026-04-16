@@ -1,13 +1,13 @@
 # Python
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # env
 .env
 
 # outputs
 outputs/
-sample_repo/outputs/
 
 # mac
 .DS_Store

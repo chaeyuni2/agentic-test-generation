@@ -31,47 +31,47 @@ jobs:
           git diff --name-only HEAD~1 HEAD || true
 
       - name: Run extract_diff
-        working-directory: ./sample_repo
         run: |
-          python extract_diff.py --base-ref HEAD~1 --head-ref HEAD
+          python extract_diff.py \
+            --base-ref HEAD~1 \
+            --head-ref HEAD \
+            --output outputs/changed_files.json
 
       - name: Show changed_files.json
         if: always()
-        working-directory: ./sample_repo
         run: |
           echo "=== changed_files.json ==="
           cat outputs/changed_files.json || true
 
       - name: Run extract_changed_methods
-        working-directory: ./sample_repo
         run: |
-          python extract_changed_methods.py --changed-files-json outputs/changed_files.json
+          python extract_changed_methods.py \
+            --changed-files-json outputs/changed_files.json \
+            --output outputs/changed_methods.json
 
       - name: Show changed_methods.json
         if: always()
-        working-directory: ./sample_repo
         run: |
           echo "=== changed_methods.json ==="
           cat outputs/changed_methods.json || true
 
       - name: Run LLM test generation
-        working-directory: ./sample_repo
         env:
           OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENAI_BASE_URL: https://openrouter.ai/api/v1
           OPENAI_MODEL: openai/gpt-4.1-mini
         run: |
-          python generate_tests.py --changed-files-json outputs/changed_files.json
+          python generate_tests.py \
+            --changed-files-json outputs/changed_files.json \
+            --output-dir outputs/test_scenarios
 
       - name: List generated scenario files
         if: always()
-        working-directory: ./sample_repo
         run: |
           echo "=== outputs/test_scenarios ==="
           ls -R outputs/test_scenarios || true
 
       - name: Generate pytest files
-        working-directory: ./sample_repo
         run: |
           python generate_pytest_from_json.py \
             --input-dir outputs/test_scenarios \
@@ -79,26 +79,22 @@ jobs:
 
       - name: List generated pytest files
         if: always()
-        working-directory: ./sample_repo
         run: |
           echo "=== outputs/generated_pytests ==="
           ls -R outputs/generated_pytests || true
 
       - name: Show generated pytest content
         if: always()
-        working-directory: ./sample_repo
         run: |
           echo "=== generated pytest content ==="
           find outputs/generated_pytests -name 'test_*.py' -maxdepth 1 -print -exec cat {} \; || true
 
       - name: Start mock server
-        working-directory: ./sample_repo
         run: |
           nohup python -m uvicorn mock_server:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
           sleep 5
 
       - name: Run generated pytest
-        working-directory: ./sample_repo
         run: |
           if [ ! -d outputs/generated_pytests ]; then
             echo "outputs/generated_pytests directory does not exist. Skipping pytest."
@@ -118,5 +114,5 @@ jobs:
         with:
           name: generated-test-artifacts
           path: |
-            sample_repo/outputs/
-            sample_repo/server.log
+            outputs/
+            server.log
