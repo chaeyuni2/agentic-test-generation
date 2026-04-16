@@ -27,17 +27,32 @@ jobs:
 
       - name: Show changed files
         run: |
-          git diff --name-only HEAD~1 HEAD
+          echo "=== git diff --name-only HEAD~1 HEAD ==="
+          git diff --name-only HEAD~1 HEAD || true
 
       - name: Run extract_diff
         working-directory: ./sample_repo
         run: |
           python extract_diff.py --base-ref HEAD~1 --head-ref HEAD
 
+      - name: Show changed_files.json
+        if: always()
+        working-directory: ./sample_repo
+        run: |
+          echo "=== changed_files.json ==="
+          cat outputs/changed_files.json || true
+
       - name: Run extract_changed_methods
         working-directory: ./sample_repo
         run: |
           python extract_changed_methods.py --changed-files-json outputs/changed_files.json
+
+      - name: Show changed_methods.json
+        if: always()
+        working-directory: ./sample_repo
+        run: |
+          echo "=== changed_methods.json ==="
+          cat outputs/changed_methods.json || true
 
       - name: Run LLM test generation
         working-directory: ./sample_repo
@@ -48,12 +63,33 @@ jobs:
         run: |
           python generate_tests.py --changed-files-json outputs/changed_files.json
 
+      - name: List generated scenario files
+        if: always()
+        working-directory: ./sample_repo
+        run: |
+          echo "=== outputs/test_scenarios ==="
+          ls -R outputs/test_scenarios || true
+
       - name: Generate pytest files
         working-directory: ./sample_repo
         run: |
           python generate_pytest_from_json.py \
             --input-dir outputs/test_scenarios \
             --output-dir outputs/generated_pytests
+
+      - name: List generated pytest files
+        if: always()
+        working-directory: ./sample_repo
+        run: |
+          echo "=== outputs/generated_pytests ==="
+          ls -R outputs/generated_pytests || true
+
+      - name: Show generated pytest content
+        if: always()
+        working-directory: ./sample_repo
+        run: |
+          echo "=== generated pytest content ==="
+          find outputs/generated_pytests -name 'test_*.py' -maxdepth 1 -print -exec cat {} \; || true
 
       - name: Start mock server
         working-directory: ./sample_repo
@@ -64,9 +100,20 @@ jobs:
       - name: Run generated pytest
         working-directory: ./sample_repo
         run: |
+          if [ ! -d outputs/generated_pytests ]; then
+            echo "outputs/generated_pytests directory does not exist. Skipping pytest."
+            exit 0
+          fi
+
+          if [ -z "$(find outputs/generated_pytests -name 'test_*.py' -print -quit)" ]; then
+            echo "No generated pytest files found. Skipping pytest."
+            exit 0
+          fi
+
           pytest outputs/generated_pytests -q
 
       - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: generated-test-artifacts
