@@ -1,0 +1,75 @@
+name: Agentic Test Generation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  run-test-generation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install openai pytest requests fastapi uvicorn
+
+      - name: Show changed files
+        run: |
+          git diff --name-only HEAD~1 HEAD
+
+      - name: Run extract_diff
+        working-directory: ./sample_repo
+        run: |
+          python extract_diff.py --base-ref HEAD~1 --head-ref HEAD
+
+      - name: Run extract_changed_methods
+        working-directory: ./sample_repo
+        run: |
+          python extract_changed_methods.py --changed-files-json outputs/changed_files.json
+
+      - name: Run LLM test generation
+        working-directory: ./sample_repo
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAI_BASE_URL: https://openrouter.ai/api/v1
+          OPENAI_MODEL: openai/gpt-4.1-mini
+        run: |
+          python generate_tests.py --changed-files-json outputs/changed_files.json
+
+      - name: Generate pytest files
+        working-directory: ./sample_repo
+        run: |
+          python generate_pytest_from_json.py \
+            --input-dir outputs/test_scenarios \
+            --output-dir outputs/generated_pytests
+
+      - name: Start mock server
+        working-directory: ./sample_repo
+        run: |
+          nohup python -m uvicorn mock_server:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
+          sleep 5
+
+      - name: Run generated pytest
+        working-directory: ./sample_repo
+        run: |
+          pytest outputs/generated_pytests -q
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-test-artifacts
+          path: |
+            sample_repo/outputs/
+            sample_repo/server.log
