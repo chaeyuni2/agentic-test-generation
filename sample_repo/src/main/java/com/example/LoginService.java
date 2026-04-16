@@ -1,10 +1,14 @@
 package com.example;
-// trigger github actions test
+
 public class LoginService {
 
     public String login(String userId, String password) {
         if (userId == null || password == null) {
             throw new IllegalArgumentException("userId/password is required");
+        }
+
+        if (userId.isBlank() || password.isBlank()) {
+            return "EMPTY_INPUT";
         }
 
         if ("locked".equals(userId)) {

@@ -16,6 +16,12 @@ def health():
 
 @app.post("/login")
 def login(req: LoginRequest):
+    if req.userId is None or req.password is None:
+        return {"detail": "userId/password is required"}
+
+    if req.userId.strip() == "" or req.password.strip() == "":
+        return {"result": "EMPTY_INPUT"}
+
     if req.userId == "locked":
         return {"result": "LOCKED_USER"}
 
