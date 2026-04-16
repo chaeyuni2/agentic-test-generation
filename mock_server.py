@@ -28,6 +28,9 @@ def login(req: LoginRequest):
     if req.userId != "admin":
         return {"result": "USER_NOT_FOUND"}
 
+    if len(req.password) < 4:
+        return {"result": "WEAK_PASSWORD"}
+
     if req.password != "1234":
         return {"result": "INVALID_PASSWORD"}
 

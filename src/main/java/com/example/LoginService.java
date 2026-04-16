@@ -19,6 +19,10 @@ public class LoginService {
             return "USER_NOT_FOUND";
         }
 
+        if (password.length() < 4) {
+            return "WEAK_PASSWORD";
+        }
+
         if (!"1234".equals(password)) {
             return "INVALID_PASSWORD";
         }
