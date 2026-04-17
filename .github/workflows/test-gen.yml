@@ -1,4 +1,4 @@
-name: Agentic Test Generation
+name: Agentic Test Generation (JUnit)
 
 on:
   push:
@@ -20,10 +20,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install openai pytest requests fastapi uvicorn
+          pip install openai
 
       - name: Show changed files
         run: |
@@ -55,7 +55,7 @@ jobs:
           echo "=== changed_methods.json ==="
           cat outputs/changed_methods.json || true
 
-      - name: Run LLM test generation
+      - name: Run LLM test scenario generation
         env:
           OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENAI_BASE_URL: https://openrouter.ai/api/v1
@@ -71,48 +71,35 @@ jobs:
           echo "=== outputs/test_scenarios ==="
           ls -R outputs/test_scenarios || true
 
-      - name: Generate pytest files
+      - name: Show generated scenario content
+        if: always()
         run: |
-          python generate_pytest_from_json.py \
+          echo "=== generated scenario content ==="
+          find outputs/test_scenarios -name '*.json' ! -name '_summary.json' -maxdepth 1 -print -exec cat {} \; || true
+
+      - name: Generate JUnit files
+        run: |
+          python generate_junit_from_json.py \
             --input-dir outputs/test_scenarios \
-            --output-dir outputs/generated_pytests
+            --output-dir src/test/java
 
-      - name: List generated pytest files
+      - name: List generated JUnit files
         if: always()
         run: |
-          echo "=== outputs/generated_pytests ==="
-          ls -R outputs/generated_pytests || true
+          echo "=== generated junit files ==="
+          find src/test/java -name '*GeneratedTest.java' -print || true
 
-      - name: Show generated pytest content
+      - name: Show generated JUnit content
         if: always()
         run: |
-          echo "=== generated pytest content ==="
-          find outputs/generated_pytests -name 'test_*.py' -maxdepth 1 -print -exec cat {} \; || true
-
-      - name: Start mock server
-        run: |
-          nohup python -m uvicorn mock_server:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
-          sleep 5
-
-      - name: Run generated pytest
-        run: |
-          if [ ! -d outputs/generated_pytests ]; then
-            echo "outputs/generated_pytests directory does not exist. Skipping pytest."
-            exit 0
-          fi
-
-          if [ -z "$(find outputs/generated_pytests -name 'test_*.py' -print -quit)" ]; then
-            echo "No generated pytest files found. Skipping pytest."
-            exit 0
-          fi
-
-          pytest outputs/generated_pytests -q
+          echo "=== generated junit content ==="
+          find src/test/java -name '*GeneratedTest.java' -print -exec cat {} \; || true
 
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: generated-test-artifacts
+          name: generated-junit-artifacts
           path: |
             outputs/
-            server.log
+            src/test/java/
